@@ -243,7 +243,11 @@ function parseNode(
   }
 
   // border/corner
-
+  if (hasValue("absoluteBoundingBox", n)) {
+    const { x, y, width, height } = n.absoluteBoundingBox;
+    simplified.boundingBox = { x, y, width, height };
+  }
+  
   // opacity
   if (hasValue("opacity", n) && typeof n.opacity === "number" && n.opacity !== 1) {
     simplified.opacity = n.opacity;
