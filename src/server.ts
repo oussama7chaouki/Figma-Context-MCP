@@ -7,6 +7,11 @@ import { IncomingMessage, ServerResponse, Server } from "http";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { SimplifiedDesign } from "./services/simplify-node-response.js";
 import yaml from "js-yaml";
+import fs from "fs";
+import path from "path";
+import puppeteer from "puppeteer";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 
 export const Logger = {
   log: (...args: any[]) => {},
@@ -171,6 +176,113 @@ export class FigmaMcpServer {
           return {
             isError: true,
             content: [{ type: "text", text: `Error downloading images: ${error}` }],
+          };
+        }
+      },
+    );
+
+    // Tool to compare Figma node with screenshot
+    this.server.tool(
+      "compare_node_image",
+      "Export a Figma node as an image, take a screenshot of a rendered page, and compare them for similarity",
+      {
+        fileKey: z.string().describe("The key of the Figma file containing the node"),
+        nodeId: z.string().describe("The ID of the Figma node to export as an image"),
+        url: z.string().describe("The URL of the rendered page to take a screenshot of"),
+        localPath: z.string().describe("The absolute path to the directory where images will be stored"),
+        threshold: z.number().optional().describe("The threshold for image similarity detection (0-1, default 0.1)")
+      },
+      async ({ fileKey, nodeId, url, localPath, threshold = 0.1 }) => {
+        try {
+          Logger.log(`Comparing Figma node ${nodeId} with screenshot from ${url}`);
+          
+          // Create directory if it doesn't exist
+          if (!fs.existsSync(localPath)) {
+            fs.mkdirSync(localPath, { recursive: true });
+          }
+          
+          // Step 1: Download Figma node image
+          const figmaFileName = `figma-${nodeId}.png`;
+          const renderRequests = [{
+            nodeId,
+            fileName: figmaFileName,
+            fileType: "png" as const,
+          }];
+          
+          const figmaImagePaths = await this.figmaService.getImages(fileKey, renderRequests, localPath);
+          if (!figmaImagePaths.length) {
+            throw new Error(`Failed to download Figma image for node ${nodeId}`);
+          }
+          const figmaImagePath = path.join(localPath, figmaFileName);
+          
+          // Step 2: Take screenshot of the rendered page
+          const browser = await puppeteer.launch({ headless: "new" });
+          const page = await browser.newPage();
+          
+          // Navigate to the URL and wait for network idle
+          await page.goto(url, { waitUntil: 'networkidle2' });
+          
+          // Take screenshot
+          const screenshotFileName = `screenshot-${Date.now()}.png`;
+          const screenshotPath = path.join(localPath, screenshotFileName);
+          await page.screenshot({ path: screenshotPath, fullPage: true });
+          
+          await browser.close();
+          
+          // Step 3: Compare the images
+          const figmaPng = PNG.sync.read(fs.readFileSync(figmaImagePath));
+          const screenshotPng = PNG.sync.read(fs.readFileSync(screenshotPath));
+          
+          // Create a diff image
+          const { width, height } = figmaPng;
+          const diffPng = new PNG({ width, height });
+          const diffFileName = `diff-${Date.now()}.png`;
+          const diffPath = path.join(localPath, diffFileName);
+          
+          // Calculate image difference
+          const numDiffPixels = pixelmatch(
+            figmaPng.data, 
+            screenshotPng.data, 
+            diffPng.data, 
+            width, 
+            height, 
+            { threshold }
+          );
+          
+          // Save diff image
+          fs.writeFileSync(diffPath, PNG.sync.write(diffPng));
+          
+          // Calculate similarity percentage
+          const totalPixels = width * height;
+          const similarityPercentage = 100 - (numDiffPixels / totalPixels * 100);
+          
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Image comparison complete:\n` +
+                  `- Figma image: ${figmaImagePath}\n` +
+                  `- Screenshot: ${screenshotPath}\n` +
+                  `- Diff image: ${diffPath}\n` +
+                  `- Similarity: ${similarityPercentage.toFixed(2)}%\n` +
+                  `- Different pixels: ${numDiffPixels} out of ${totalPixels}`
+              }
+            ],
+            metadata: {
+              figmaImagePath,
+              screenshotPath,
+              diffPath,
+              similarityPercentage,
+              numDiffPixels,
+              totalPixels
+            }
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : JSON.stringify(error);
+          Logger.error(`Error comparing images:`, message);
+          return {
+            isError: true,
+            content: [{ type: "text", text: `Error comparing images: ${message}` }],
           };
         }
       },
