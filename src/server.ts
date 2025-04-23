@@ -189,7 +189,7 @@ export class FigmaMcpServer {
         fileKey: z.string().describe("The key of the Figma file containing the node"),
         nodeId: z.string().describe("The ID of the Figma node to export as an image"),
         url: z.string().describe("The URL of the rendered page to take a screenshot of"),
-        localPath: z.string().describe("The absolute path to the directory where images will be stored"),
+        localPath: z.string().describe("The absolute path to the directory where images are stored in the project. If the directory does not exist, it will be created. The format of this path should respect the directory format of the operating system you are running on. Don't use any special character escaping in the path name either."),
         threshold: z.number().optional().describe("The threshold for image similarity detection (0-1, default 0.1)")
       },
       async ({ fileKey, nodeId, url, localPath, threshold = 0.1 }) => {
