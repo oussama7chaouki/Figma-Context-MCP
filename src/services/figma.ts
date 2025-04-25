@@ -135,6 +135,36 @@ export class FigmaService {
     return Promise.all(downloads);
   }
 
+  async getImageOfNode(
+    fileKey: string,
+    nodeId: string,
+    localPath: string,
+    fileName: string,
+  ): Promise<string> {
+    const format = "png";
+  
+    // Hit the Figma API with your raw nodeId string
+    const { images = {} } = await this.request<GetImagesResponse>(
+      `/images/${fileKey}?ids=${nodeId}&format=${format}`,
+    );
+  
+    const imageUrl = images[nodeId];
+    if (!imageUrl) {
+      throw new Error(`No image URL returned for nodeId: ${nodeId}`);
+    }
+    else {
+      Logger.log(`Image URL for nodeId ${nodeId}: ${imageUrl}`);
+    }
+  
+    const downloadedPath = await downloadFigmaImage(fileName, localPath, imageUrl);
+    if (!downloadedPath) {
+      throw new Error(`Image for nodeId ${nodeId} failed to download.`);
+    }
+  
+    return downloadedPath;
+  }
+  
+
   async getFile(fileKey: string, depth?: number): Promise<SimplifiedDesign> {
     try {
       const endpoint = `/files/${fileKey}${depth ? `?depth=${depth}` : ""}`;

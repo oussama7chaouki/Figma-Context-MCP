@@ -187,7 +187,7 @@ export class FigmaMcpServer {
       "Export a Figma node as an image, take a screenshot of a rendered page, and compare them for similarity",
       {
         fileKey: z.string().describe("The key of the Figma file containing the node"),
-        nodeId: z.string().describe("The ID of the Figma node to export as an image"),
+        nodeId: z.string().describe("The ID of the node to fetch, often found as URL parameter node-id=<nodeId>, always use if provided"),
         url: z.string().describe("The URL of the rendered page to take a screenshot of"),
         localPath: z.string().describe("The absolute path to the directory where images are stored in the project. If the directory does not exist, it will be created. The format of this path should respect the directory format of the operating system you are running on. Don't use any special character escaping in the path name either."),
         threshold: z.number().optional().describe("The threshold for image similarity detection (0-1, default 0.1)")
@@ -202,14 +202,12 @@ export class FigmaMcpServer {
           }
           
           // Step 1: Download Figma node image
-          const figmaFileName = `figma-${nodeId}.png`;
-          const renderRequests = [{
-            nodeId,
-            fileName: figmaFileName,
-            fileType: "png" as const,
-          }];
+          const safeNodeId = nodeId.replace(/[^a-zA-Z0-9-_\.]/g, '');
+          const figmaFileName = `figma-${safeNodeId}.png`;
+
+;
           
-          const figmaImagePaths = await this.figmaService.getImages(fileKey, renderRequests, localPath);
+          const figmaImagePaths = await this.figmaService.getImageOfNode(fileKey, nodeId, localPath,figmaFileName);
           if (!figmaImagePaths.length) {
             throw new Error(`Failed to download Figma image for node ${nodeId}`);
           }
