@@ -78,6 +78,8 @@ export interface SimplifiedNode {
   // for rect-specific strokes, etc.
   // children
   children?: SimplifiedNode[];
+  // segmented text runs with font sizes when characters have style overrides
+  textSegments?: { text: string; fontSize?: number }[];
 }
 
 export interface BoundingBox {
@@ -237,13 +239,32 @@ function parseNode(
     simplified.layout = findOrCreateVar(globalVars, layout, "layout");
   }
 
-  // Keep other simple properties directly
+  // handle text and segmented runs with fontSize when style overrides present
   if (hasValue("characters", n, isTruthy)) {
-    simplified.text = n.characters;
+    // handle segmented text only for TEXT nodes with style overrides
+    if (n.type === "TEXT" && 'characterStyleOverrides' in n && Array.isArray(n.characterStyleOverrides) && hasValue("styleOverrideTable", n)) {
+      const overrides = n.characterStyleOverrides;
+      const text = n.characters;
+      const segments: Array<{ text: string; fontSize?: number }> = [];
+      let start = 0;
+      let current = overrides[0];
+      for (let i = 1; i <= text.length; i++) {
+        if (i === text.length || overrides[i] !== current) {
+          const segmentText = text.slice(start, i);
+          const styleOverride = n.styleOverrideTable?.[current];
+          segments.push({ text: segmentText, fontSize: styleOverride?.fontSize });
+          start = i;
+          current = overrides[i];
+        }
+      }
+      simplified.textSegments = segments;
+    } else {
+      simplified.text = n.characters;
+    }
   }
 
   // border/corner
-  if (hasValue("absoluteBoundingBox", n)) {
+  if (hasValue("absoluteBoundingBox", n) && n.absoluteBoundingBox) {
     const { x, y, width, height } = n.absoluteBoundingBox;
     simplified.boundingBox = { x, y, width, height };
   }
