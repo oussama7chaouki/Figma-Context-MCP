@@ -239,10 +239,16 @@ function parseNode(
     simplified.layout = findOrCreateVar(globalVars, layout, "layout");
   }
 
-  // handle text and segmented runs with fontSize when style overrides present
+  // handle text runs with font sizes: split into segments if overrides exist, else use default style fontSize
   if (hasValue("characters", n, isTruthy)) {
-    // handle segmented text only for TEXT nodes with style overrides
-    if (n.type === "TEXT" && 'characterStyleOverrides' in n && Array.isArray(n.characterStyleOverrides) && hasValue("styleOverrideTable", n)) {
+    const defaultFontSize = hasValue("style", n) ? n.style.fontSize : undefined;
+    if (
+      n.type === "TEXT" &&
+      'characterStyleOverrides' in n &&
+      Array.isArray(n.characterStyleOverrides) &&
+      n.characterStyleOverrides.length > 0 &&
+      hasValue("styleOverrideTable", n)
+    ) {
       const overrides = n.characterStyleOverrides;
       const text = n.characters;
       const segments: Array<{ text: string; fontSize?: number }> = [];
@@ -252,14 +258,14 @@ function parseNode(
         if (i === text.length || overrides[i] !== current) {
           const segmentText = text.slice(start, i);
           const styleOverride = n.styleOverrideTable?.[current];
-          segments.push({ text: segmentText, fontSize: styleOverride?.fontSize });
+          segments.push({ text: segmentText, fontSize: styleOverride?.fontSize ?? defaultFontSize });
           start = i;
           current = overrides[i];
         }
       }
       simplified.textSegments = segments;
     } else {
-      simplified.text = n.characters;
+      simplified.textSegments = [{ text: n.characters, fontSize: defaultFontSize }];
     }
   }
 
