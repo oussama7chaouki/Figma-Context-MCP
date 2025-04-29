@@ -187,7 +187,7 @@ export class FigmaMcpServer {
       "Export a Figma node as an image, take a screenshot of a rendered page, and compare them for similarity",
       {
         fileKey: z.string().describe("The key of the Figma file containing the node"),
-        nodeId: z.string().describe("The ID of the node to fetch, often found as URL parameter node-id=<nodeId>, always use if provided"),
+        nodeId: z.string().describe("The ID of the node to fetch, often found as URL parameter node-id=<nodeId> replace the - with : if needed"),
         url: z.string().describe("The URL of the rendered page to take a screenshot of"),
         localPath: z.string().describe("The absolute path to the directory where images are stored in the project. If the directory does not exist, it will be created. The format of this path should respect the directory format of the operating system you are running on. Don't use any special character escaping in the path name either."),
         threshold: z.number().optional().describe("The threshold for image similarity detection (0-1, default 0.1)")
@@ -214,7 +214,7 @@ export class FigmaMcpServer {
           const figmaImagePath = path.join(localPath, figmaFileName);
           
           // Step 2: Take screenshot of the rendered page
-          const browser = await puppeteer.launch({ headless: "new" });
+          const browser = await puppeteer.launch({ headless: "new" ,  args: ['--allow-file-access-from-files']          });
           const page = await browser.newPage();
           
           // Navigate to the URL and wait for network idle
