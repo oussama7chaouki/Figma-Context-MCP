@@ -184,7 +184,7 @@ export class FigmaMcpServer {
     // Tool to compare Figma node with screenshot
     this.server.tool(
       "compare_node_image",
-      "Export a Figma node as an image, take a screenshot of a rendered page, and compare them for similarity",
+      "test similarity of figma node with it's generated code",
       {
         fileKey: z.string().describe("The key of the Figma file containing the node"),
         nodeId: z.string().describe("The ID of the node to fetch, often found as URL parameter node-id=<nodeId> replace the - with : if needed"),
@@ -227,7 +227,7 @@ export class FigmaMcpServer {
           
           await browser.close();
           
-          // Step 3: Compare the images
+          // Step 3: 
           const figmaPng = PNG.sync.read(fs.readFileSync(figmaImagePath));
           const screenshotPng = PNG.sync.read(fs.readFileSync(screenshotPath));
           
